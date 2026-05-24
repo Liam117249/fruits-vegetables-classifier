@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fresh Picks — Fruit & Vegetable Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-deep:   #1a3a2a;
+      --green-mid:    #2d5f3f;
+      --green-soft:   #4a8c5c;
+      --green-light:  #a8d5b5;
+      --cream:        #ffffff;
+      --warm-white:   #ffffff;
+      --amber:        #e8a020;
+      --amber-light:  #ffd166;
+      --red-fruit:    #c94040;
+      --text-dark:    #1a2a1e;
+      --text-mid:     #3d5a42;
+      --text-light:   #7a9e82;
+      --shadow:       0 8px 40px rgba(26,58,42,.12);
+      --radius:       18px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text-dark);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Green field background ─────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1800&auto=format&fit=crop&q=80');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: brightness(0.82) saturate(1.1);
+      pointer-events: none; z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,0.52);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .page { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeDown .8s ease both;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--green-deep);
+      color: #fff;
+      font-size: .8rem;
+      font-weight: 500;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 7px 20px;
+      border-radius: 50px;
+      margin-bottom: 24px;
+    }
+    .logo-badge span { font-size: 1rem; }
+
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      color: var(--green-deep);
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    h1 em { font-style: italic; color: var(--green-soft); }
+
+    .tagline {
+      font-size: 1.05rem;
+      color: var(--text-mid);
+      font-weight: 300;
+      max-width: 440px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Upload Card ─────────────────────────────────────────────── */
+    .upload-card {
+      background: var(--warm-white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1.5px solid rgba(74,140,92,.12);
+      padding: 48px 40px;
+      animation: fadeUp .9s ease .1s both;
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2.5px dashed var(--green-light);
+      border-radius: 14px;
+      padding: 56px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .25s ease;
+      background: rgba(168,213,181,.06);
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--green-soft);
+      background: rgba(168,213,181,.14);
+      transform: translateY(-2px);
+    }
+
+    .drop-icon {
+      font-size: 3.5rem;
+      display: block;
+      margin-bottom: 16px;
+      animation: bounce 2.5s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+
+    .drop-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      color: var(--green-deep);
+      margin-bottom: 8px;
+    }
+
+    .drop-sub {
+      font-size: .9rem;
+      color: var(--text-light);
+    }
+
+    .file-input { display: none; }
+
+    /* Browse button */
+    .btn-browse {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 30px;
+      background: var(--green-deep);
+      color: #fff;
+      border-radius: 50px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .9rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: background .2s, transform .15s;
+    }
+    .btn-browse:hover { background: var(--green-mid); transform: translateY(-1px); }
+
+    /* Preview strip */
+    .preview-strip {
+      display: none;
+      margin-top: 24px;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .preview-strip.visible { display: block; }
+    .preview-strip img {
+      width: 100%;
+      max-height: 320px;
+      object-fit: cover;
+      display: block;
+    }
+    .preview-strip .change-btn {
+      position: absolute;
+      top: 12px; right: 12px;
+      background: rgba(0,0,0,.5);
+      color: #fff;
+      font-size: .8rem;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      transition: background .2s;
+    }
+    .preview-strip .change-btn:hover { background: rgba(0,0,0,.75); }
+
+    /* Submit */
+    .btn-classify {
+      display: block;
+      width: 100%;
+      margin-top: 28px;
+      padding: 17px;
+      background: linear-gradient(135deg, var(--green-deep), var(--green-mid));
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s;
+      letter-spacing: .03em;
+    }
+    .btn-classify:hover:not(:disabled) { opacity: .92; transform: translateY(-1px); }
+    .btn-classify:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    .spinner-wrap { display: none; text-align: center; padding: 40px 0; }
+    .spinner-wrap.visible { display: block; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--green-light);
+      border-top-color: var(--green-deep);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap p { color: var(--text-light); font-size: .9rem; }
+
+    /* ── Results ─────────────────────────────────────────────────── */
+    .results-card {
+      display: none;
+      margin-top: 32px;
+      background: var(--warm-white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1.5px solid rgba(74,140,92,.12);
+      overflow: hidden;
+      animation: fadeUp .6s ease both;
+    }
+    .results-card.visible { display: block; }
+
+    .result-hero {
+      background: linear-gradient(135deg, var(--green-deep) 0%, var(--green-mid) 100%);
+      padding: 36px 40px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .result-emoji-wrap {
+      width: 88px; height: 88px;
+      background: rgba(255,255,255,.12);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.8rem;
+      flex-shrink: 0;
+    }
+
+    .result-hero-text { flex: 1; }
+    .result-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.9rem;
+      color: #fff;
+      text-transform: capitalize;
+      margin-bottom: 6px;
+    }
+    .result-conf {
+      font-size: .95rem;
+      color: rgba(255,255,255,.75);
+      font-weight: 300;
+    }
+
+    /* Confidence bar */
+    .conf-bar-wrap {
+      margin-top: 10px;
+      height: 6px;
+      background: rgba(255,255,255,.2);
+      border-radius: 3px;
+      overflow: hidden;
+      max-width: 220px;
+    }
+    .conf-bar-fill {
+      height: 100%;
+      background: var(--amber-light);
+      border-radius: 3px;
+      transition: width .8s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* Top-5 table */
+    .top5-section { padding: 32px 40px; }
+    .top5-title {
+      font-size: .8rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 18px;
+      font-weight: 500;
+    }
+
+    .top5-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .top5-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(168,213,181,.1);
+      border: 1px solid rgba(168,213,181,.25);
+      animation: fadeUp .4s ease both;
+    }
+    .top5-item:nth-child(1) { animation-delay: .05s; }
+    .top5-item:nth-child(2) { animation-delay: .10s; }
+    .top5-item:nth-child(3) { animation-delay: .15s; }
+    .top5-item:nth-child(4) { animation-delay: .20s; }
+    .top5-item:nth-child(5) { animation-delay: .25s; }
+
+    .top5-item:first-child {
+      background: rgba(74,140,92,.14);
+      border-color: rgba(74,140,92,.3);
+    }
+
+    .item-rank {
+      font-size: .75rem;
+      color: var(--text-light);
+      width: 18px;
+      text-align: center;
+      font-weight: 500;
+    }
+    .item-emoji { font-size: 1.3rem; width: 28px; text-align: center; }
+    .item-name {
+      flex: 1;
+      font-size: .95rem;
+      font-weight: 500;
+      text-transform: capitalize;
+      color: var(--text-dark);
+    }
+    .item-pct {
+      font-size: .9rem;
+      color: var(--green-soft);
+      font-weight: 500;
+      min-width: 52px;
+      text-align: right;
+    }
+
+    .item-bar-wrap {
+      width: 90px;
+      height: 5px;
+      background: rgba(74,140,92,.12);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .item-bar-fill {
+      height: 100%;
+      background: var(--green-soft);
+      border-radius: 3px;
+      transition: width .8s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* Try again */
+    .btn-again {
+      display: block;
+      width: calc(100% - 80px);
+      margin: 0 40px 32px;
+      padding: 14px;
+      text-align: center;
+      background: transparent;
+      border: 2px solid var(--green-light);
+      color: var(--green-deep);
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-again:hover { background: var(--green-light); }
+
+    /* ── Error toast ─────────────────────────────────────────────── */
+    .error-msg {
+      display: none;
+      margin-top: 20px;
+      background: #fff0f0;
+      border: 1.5px solid #f5c0c0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: var(--red-fruit);
+      font-size: .9rem;
+    }
+    .error-msg.visible { display: block; }
+
+    /* ── Classes pills ───────────────────────────────────────────── */
+    .classes-section {
+      margin-top: 56px;
+      animation: fadeUp 1s ease .3s both;
+    }
+    .classes-section h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      color: var(--green-deep);
+      margin-bottom: 6px;
+    }
+    .classes-section p {
+      font-size: .9rem;
+      color: var(--text-light);
+      margin-bottom: 20px;
+    }
+    .pill-list {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .pill {
+      background: #fff;
+      border: 1.5px solid var(--green-light);
+      color: var(--text-mid);
+      border-radius: 50px;
+      padding: 5px 14px;
+      font-size: .82rem;
+      font-weight: 400;
+      text-transform: capitalize;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      margin-top: 64px;
+      color: var(--text-light);
+      font-size: .82rem;
+      line-height: 1.8;
+    }
+    footer strong { color: var(--text-mid); }
+
+    /* ── Animations ──────────────────────────────────────────────── */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 560px) {
+      .upload-card { padding: 28px 20px; }
+      .result-hero { flex-direction: column; align-items: flex-start; padding: 28px 24px; gap: 16px; }
+      .top5-section { padding: 24px; }
+      .btn-again { width: calc(100% - 48px); margin: 0 24px 24px; }
+      .item-bar-wrap { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <header>
+      <div class="logo-badge"><span>🎓</span> Final Project</div>
+      <h1>Fresh <em>Picks</em></h1>
+      <p class="tagline">Upload a photo and our classifier will identify your fruit or vegetable in seconds.</p>
+    </header>
+
+    <!-- Upload Card -->
+    <div class="upload-card">
+      <div class="drop-zone" id="dropZone">
+        <span class="drop-icon">📸</span>
+        <div class="drop-title">Drop your image here</div>
+        <div class="drop-sub">JPG, PNG, WEBP · up to 10 MB</div>
+        <label class="btn-browse" for="fileInput">Browse Files</label>
+        <input type="file" id="fileInput" class="file-input" accept="image/*" />
+      </div>
+
+      <div class="preview-strip" id="previewStrip">
+        <img id="previewImg" src="" alt="Preview" />
+        <button class="change-btn" id="changeBtn">✕ Change</button>
+      </div>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <button class="btn-classify" id="classifyBtn" disabled>
+        🔍 &nbsp;Classify Image
+      </button>
+
+      <!-- Spinner -->
+      <div class="spinner-wrap" id="spinner">
+        <div class="spinner"></div>
+        <p>Identifying your produce…</p>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-card" id="resultsCard">
+      <div class="result-hero">
+        <div class="result-emoji-wrap" id="resultEmoji"></div>
+        <div class="result-hero-text">
+          <div class="result-label" id="resultLabel"></div>
+          <div class="result-conf" id="resultConf"></div>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar-fill" id="confBarFill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="top5-section">
+        <div class="top5-title">Top 5 Predictions</div>
+        <div class="top5-list" id="top5List"></div>
+      </div>
+
+      <button class="btn-again" id="tryAgainBtn">↩ Try another image</button>
+    </div>
+
+    <!-- Classes -->
+    <div class="classes-section">
+      <h2>36 Recognised Classes</h2>
+      <p>Our model can identify any of the following fruits and vegetables.</p>
+      <div class="pill-list" id="pillList"></div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <p>Built with <strong>TensorFlow / Keras</strong> · Served via <strong>Flask</strong> · Deployed on <strong>Azure</strong></p>
+      <p>Parami University — Advanced Machine Learning · <strong>Kyaw Toe Toe Han</strong></p>
+    </footer>
+
+  </div>
+
+  <script>
+    const CLASS_NAMES = [
+      "apple","banana","beetroot","bell pepper","cabbage","capsicum","carrot",
+      "cauliflower","chilli pepper","corn","cucumber","eggplant","garlic","ginger",
+      "grapes","jalepeno","kiwi","lemon","lettuce","mango","onion","orange",
+      "paprika","pear","peas","pineapple","pomegranate","potato","raddish",
+      "soy beans","spinach","sweetcorn","sweetpotato","tomato","turnip","watermelon"
+    ];
+
+    const CLASS_EMOJI = {
+      apple:"🍎",banana:"🍌",beetroot:"🫚","bell pepper":"🫑",cabbage:"🥬",
+      capsicum:"🫑",carrot:"🥕",cauliflower:"🥦","chilli pepper":"🌶️",corn:"🌽",
+      cucumber:"🥒",eggplant:"🍆",garlic:"🧄",ginger:"🫚",grapes:"🍇",
+      jalepeno:"🌶️",kiwi:"🥝",lemon:"🍋",lettuce:"🥬",mango:"🥭",onion:"🧅",
+      orange:"🍊",paprika:"🫑",pear:"🍐",peas:"🫛",pineapple:"🍍",
+      pomegranate:"🍎",potato:"🥔",raddish:"🌱","soy beans":"🫘",spinach:"🥬",
+      sweetcorn:"🌽",sweetpotato:"🍠",tomato:"🍅",turnip:"🥕",watermelon:"🍉"
+    };
+
+    // Populate pill list
+    const pillList = document.getElementById('pillList');
+    CLASS_NAMES.forEach(name => {
+      const pill = document.createElement('span');
+      pill.className = 'pill';
+      pill.textContent = (CLASS_EMOJI[name] || '🌿') + ' ' + name;
+      pillList.appendChild(pill);
+    });
+
+    // Elements
+    const dropZone     = document.getElementById('dropZone');
+    const fileInput    = document.getElementById('fileInput');
+    const previewStrip = document.getElementById('previewStrip');
+    const previewImg   = document.getElementById('previewImg');
+    const changeBtn    = document.getElementById('changeBtn');
+    const classifyBtn  = document.getElementById('classifyBtn');
+    const spinner      = document.getElementById('spinner');
+    const resultsCard  = document.getElementById('resultsCard');
+    const errorMsg     = document.getElementById('errorMsg');
+
+    let selectedFile = null;
+
+    function showPreview(file) {
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      previewImg.src = url;
+      previewStrip.classList.add('visible');
+      classifyBtn.disabled = false;
+      errorMsg.classList.remove('visible');
+      dropZone.style.display = 'none';
+    }
+
+    function reset() {
+      selectedFile = null;
+      fileInput.value = '';
+      previewImg.src = '';
+      previewStrip.classList.remove('visible');
+      classifyBtn.disabled = true;
+      resultsCard.classList.remove('visible');
+      errorMsg.classList.remove('visible');
+      spinner.classList.remove('visible');
+      dropZone.style.display = '';
+    }
+
+    // File input
+    fileInput.addEventListener('change', e => {
+      if (e.target.files[0]) showPreview(e.target.files[0]);
+    });
+
+    // Drag & drop
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) showPreview(file);
+    });
+
+    // Click on drop zone also opens file dialog
+    dropZone.addEventListener('click', e => {
+      if (e.target !== document.querySelector('.btn-browse')) fileInput.click();
+    });
+
+    changeBtn.addEventListener('click', reset);
+    document.getElementById('tryAgainBtn').addEventListener('click', reset);
+
+    // Classify
+    classifyBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      classifyBtn.style.display = 'none';
+      spinner.classList.add('visible');
+      resultsCard.classList.remove('visible');
+      errorMsg.classList.remove('visible');
+
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/predict', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        spinner.classList.remove('visible');
+        classifyBtn.style.display = '';
+
+        if (!res.ok || data.error) {
+          showError(data.error || 'Prediction failed. Please try again.');
+          return;
+        }
+
+        renderResults(data);
+
+      } catch (err) {
+        spinner.classList.remove('visible');
+        classifyBtn.style.display = '';
+        showError('Network error. Please check your connection.');
+      }
+    });
+
+    function showError(msg) {
+      errorMsg.textContent = '⚠ ' + msg;
+      errorMsg.classList.add('visible');
+    }
+
+    function renderResults(data) {
+      // Hero
+      document.getElementById('resultEmoji').textContent = data.emoji || '🌿';
+      document.getElementById('resultLabel').textContent = data.prediction;
+      document.getElementById('resultConf').textContent  = `Confidence: ${data.confidence}%`;
+      setTimeout(() => {
+        document.getElementById('confBarFill').style.width = Math.min(data.confidence, 100) + '%';
+      }, 80);
+
+      // Top-5
+      const list = document.getElementById('top5List');
+      list.innerHTML = '';
+      data.top5.forEach((item, i) => {
+        const el = document.createElement('div');
+        el.className = 'top5-item';
+        el.innerHTML = `
+          <span class="item-rank">${i + 1}</span>
+          <span class="item-emoji">${item.emoji}</span>
+          <span class="item-name">${item.label}</span>
+          <div class="item-bar-wrap">
+            <div class="item-bar-fill" style="width:0%" data-pct="${item.confidence}"></div>
+          </div>
+          <span class="item-pct">${item.confidence}%</span>
+        `;
+        list.appendChild(el);
+      });
+
+      resultsCard.classList.add('visible');
+      resultsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      // Animate bars
+      setTimeout(() => {
+        list.querySelectorAll('.item-bar-fill').forEach(bar => {
+          bar.style.width = Math.min(parseFloat(bar.dataset.pct), 100) + '%';
+        });
+      }, 150);
+    }
+  </script>
+</body>
+</html>
